@@ -64,6 +64,9 @@ const (
 	// IANAProtoICMP is IANA Internet Control Message number
 	IANAProtoICMP = 1
 
+	// IANAProtoIPIP is IANA User Datagram number
+	IANAProtoIPIP = 4
+
 	// IANAProtoTCP is IANA Transmission Control number
 	IANAProtoTCP = 6
 
@@ -123,6 +126,15 @@ func (p *Packet) decodeNextLayer() error {
 
 		p.L4 = udp
 		len = 8
+
+	case IANAProtoIPIP:
+		ipip, err := decodeIPIP(p.data)
+		if err != nil {
+			return err
+		}
+
+		p.L4 = ipip
+		len = 40
 	default:
 		return errUnknownTransportLayer
 	}

@@ -22,7 +22,10 @@
 
 package packet
 
-import "errors"
+import (
+	"errors"
+	"net"
+)
 
 // TCPHeader represents TCP header
 type TCPHeader struct {
@@ -39,9 +42,30 @@ type UDPHeader struct {
 	DstPort int
 }
 
+// IPIPHeader represents IPIP header
+type IPIPHeader struct {
+	InnerVersion  int
+	InnerTOS      int
+	InnerTotalLen int
+	InnerID       int
+	InnerFlags    int
+	InnerFragOff  int
+	InnerTTL      int
+	InnerProtocol int
+	InnerChecksum int
+	InnerSrc      string
+	InnerDst      string
+	SrcPort       int
+	DstPort       int
+	DataOffset    int
+	Reserved      int
+	Flags         int
+}
+
 var (
-	errShortTCPHeaderLength = errors.New("short TCP header length")
-	errShortUDPHeaderLength = errors.New("short UDP header length")
+	errShortTCPHeaderLength  = errors.New("short TCP header length")
+	errShortUDPHeaderLength  = errors.New("short UDP header length")
+	errShortIPIPHeaderLength = errors.New("short IPIP header length")
 )
 
 func decodeTCP(b []byte) (TCPHeader, error) {
@@ -67,4 +91,35 @@ func decodeUDP(b []byte) (UDPHeader, error) {
 		SrcPort: int(b[0])<<8 | int(b[1]),
 		DstPort: int(b[2])<<8 | int(b[3]),
 	}, nil
+}
+
+func decodeIPIP(b []byte) (IPIPHeader, error) {
+	if len(b) < 40 {
+		return IPIPHeader{}, errShortIPIPHeaderLength
+	}
+
+	var (
+		src net.IP = b[12:16]
+		dst net.IP = b[16:20]
+	)
+
+	ipipHeader := IPIPHeader{
+		InnerVersion:  int(b[0] & 0xf0 >> 4),
+		InnerTOS:      int(b[1]),
+		InnerTotalLen: int(b[2])<<8 | int(b[3]),
+		InnerID:       int(b[4])<<8 | int(b[5]),
+		InnerFlags:    int(b[6] & 0x07),
+		InnerTTL:      int(b[8]),
+		InnerProtocol: int(b[9]),
+		InnerChecksum: int(b[10])<<8 | int(b[11]),
+		InnerSrc:      src.String(),
+		InnerDst:      dst.String(),
+		SrcPort:       int(b[20])<<8 | int(b[21]),
+		DstPort:       int(b[22])<<8 | int(b[23]),
+		DataOffset:    int(b[32]) >> 4,
+		Reserved:      0,
+		Flags:         ((int(b[32])<<8 | int(b[33])) & 0x01ff),
+	}
+
+	return ipipHeader, nil
 }
